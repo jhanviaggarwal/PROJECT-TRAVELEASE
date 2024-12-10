@@ -666,74 +666,38 @@ app.delete("/tickets/ticketId/:id", async (req, res) => {
   }
 });
 
-
-// Define Flight schema and model
-const flightSchema = new mongoose.Schema({
-  from: { type: String, required: true },
-  to: { type: String, required: true },
-  date: { type: Date, required: true },
-  seatsAvailable: {
-    economy: { type: Number, required: true },
-    business: { type: Number, required: true },
-    first: { type: Number, required: true }
-  }
-});
-
-const Flight = mongoose.model('Flight', flightSchema);
-
-// Define Booking schema and model
-const bookingSchema = new mongoose.Schema({
-  from: { type: String, required: true },
-  to: { type: String, required: true },
-  date: { type: Date, required: true },
-  passengers: { type: Number, required: true },
-  travelClass: { type: String, required: true, enum: ['economy', 'premiumEconomy', 'business', 'first'] }
-});
-
-const Booking = mongoose.model('Booking', bookingSchema);
-
-// Admin: Get all flights
-app.get('/admin/flights', async (req, res) => {
-  try {
-    const flights = await Flight.find(); // MongoDB query to get all flights
-    res.json(flights);
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching flights' });
-  }
+// Get all flights
+app.get('/admin/flights', (req, res) => {
+  const flights = readFile(flightFile);
+  res.json(flights);
 });
 
 // Admin: Search flight by ID
-app.get('/admin/flights/:id', async (req, res) => {
-  const flightId = req.params.id;
+app.get('/admin/flights/:id', (req, res) => {
+  const flights = readFile(flightFile);
+  const flightId = parseInt(req.params.id);
 
-  try {
-    const flight = await Flight.findById(flightId); // MongoDB query to find flight by ID
-    if (!flight) {
+  // Find the flight by ID
+  const flight = flights.find(f => f.id === flightId);
+  if (!flight) {
       return res.status(404).json({ message: 'Flight not found' });
-    }
-    res.json(flight);
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching flight' });
   }
+
+  res.json(flight);
 });
 
-
-// Admin: Add a new flight
-app.post('/admin/flights', async (req, res) => {
+// Add a new flight
+app.post('/admin/flights', (req, res) => {
+  const flights = readFile(flightFile);
   const { from, to, date, seatsAvailable } = req.body;
 
-  const isPastDate = (date) => {
-    const flightDate = new Date(date);
-    const currentDate = new Date();
-    return flightDate < currentDate;
-  };
-
+  // Validate input
   if (!from || !to || !date || !seatsAvailable) {
-    return res.status(400).json({ message: 'All fields are required: from, to, date, seatsAvailable.' });
+      return res.status(400).json({ message: 'All fields are required: from, to, date, seatsAvailable.' });
   }
 
   if (isPastDate(date)) {
-    return res.status(400).json({ message: 'Cannot add a flight with a past date.' });
+      return res.status(400).json({ message: 'Cannot add a flight with a past date.' });
   }
 
   // Ensure seatsAvailable has valid classes
@@ -741,206 +705,202 @@ app.post('/admin/flights', async (req, res) => {
   const invalidClasses = Object.keys(seatsAvailable).filter(classType => !validClasses.includes(classType));
 
   if (invalidClasses.length > 0) {
-    return res.status(400).json({ message: `Invalid seat classes: ${invalidClasses.join(', ')}.` });
+      return res.status(400).json({ message: `Invalid seat classes: ${invalidClasses.join(', ')}.` });
   }
 
-  const newFlight = new Flight({
-    from,
-    to,
-    date,
-    seatsAvailable
-  });
+  const newFlight = {
+      id: flights.length + 1,
+      from,
+      to,
+      date,
+      seatsAvailable,
+  };
 
-  try {
-    await newFlight.save();
-    res.status(201).json({ message: 'Flight added successfully', flight: newFlight });
-  } catch (error) {
-    console.error('Error adding flight:', error); // Log the error
-    res.status(500).json({ message: 'Error adding flight', error: error.message });
-  }
+  flights.push(newFlight);
+  writeFile(flightFile, flights);
 
+  res.status(201).json({ message: 'Flight added successfully', flight: newFlight });
 });
 
-// Admin: Update a flight
-app.put('/admin/flights/:id', async (req, res) => {
-  const flightId = req.params.id;
+// Update a flight
+app.put('/admin/flights/:id', (req, res) => {
+  const flights = readFile(flightFile);
+  const flightId = parseInt(req.params.id);
   const { from, to, date, seatsAvailable } = req.body;
 
-  try {
-    const flight = await Flight.findById(flightId); // MongoDB query to find flight by ID
-    if (!flight) {
+  // Find the flight by ID
+  const flight = flights.find(f => f.id === flightId);
+  if (!flight) {
       return res.status(404).json({ message: 'Flight not found' });
-    }
+  }
 
-    if (date && isPastDate(date)) {
+  // Validate date
+  if (date && isPastDate(date)) {
       return res.status(400).json({ message: 'Cannot set a flight date in the past.' });
-    }
+  }
 
-    if (from) flight.from = from;
-    if (to) flight.to = to;
-    if (date) flight.date = date;
-    if (seatsAvailable !== undefined) {
+  // Update flight details
+  if (from) flight.from = from;
+  if (to) flight.to = to;
+  if (date) flight.date = date;
+  if (seatsAvailable !== undefined) {
       if (seatsAvailable < 0) {
-        return res.status(400).json({ message: 'Seats available cannot be negative.' });
+          return res.status(400).json({ message: 'Seats available cannot be negative.' });
       }
       flight.seatsAvailable = seatsAvailable;
-    }
-
-    await flight.save();
-
-    res.status(200).json({ message: 'Flight updated successfully', flight });
-  } catch (error) {
-    res.status(500).json({ message: 'Error updating flight' });
   }
+
+  writeFile(flightFile, flights);
+
+  res.status(200).json({ message: 'Flight updated successfully', flight });
 });
 
-// Admin: Delete a flight
-app.delete('/admin/flights/:id', async (req, res) => {
-  const flightId = req.params.id;
+// Delete a flight
+app.delete('/admin/flights/:id', (req, res) => {
+  const flights = readFile(flightFile);
+  const flightId = parseInt(req.params.id);
 
-  try {
-    const flight = await Flight.findByIdAndDelete(flightId); // MongoDB query to delete flight
-    if (!flight) {
+  const updatedFlights = flights.filter(flight => flight.id !== flightId);
+
+  if (updatedFlights.length === flights.length) {
       return res.status(404).json({ message: 'Flight not found' });
-    }
-
-    res.status(200).json({ message: 'Flight deleted successfully.' });
-  } catch (error) {
-    res.status(500).json({ message: 'Error deleting flight' });
   }
+
+  writeFile(flightFile, updatedFlights);
+
+  res.status(200).json({ message: 'Flight deleted successfully.' });
 });
 
-// Admin: Get all bookings
-app.get('/admin/bookings', async (req, res) => {
-  try {
-    const bookings = await Booking.find(); // MongoDB query to get all bookings
-    res.json(bookings);
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching bookings' });
-  }
+// Get all bookings
+app.get('/admin/bookings', (req, res) => {
+  const bookings = readFile(bookingFile);
+  res.json(bookings);
 });
 
 // USER ENDPOINTS
 
 // Get flights based on query parameters (from, to, date)
-app.get('/user/flights', async (req, res) => {
+app.get('/user/flights', (req, res) => {
   const { from, to, date } = req.query;
 
+  // Check if the required query parameters are provided
   if (!from || !to || !date) {
-    return res.status(400).json({ message: 'Missing required query parameters: from, to, and date.' });
+      return res.status(400).json({ message: 'Missing required query parameters: from, to, and date.' });
   }
 
+  // Validate date: Ensure the date is not in the past
   const today = new Date();
   const inputDate = new Date(date);
 
   if (inputDate < today.setHours(0, 0, 0, 0)) {
-    return res.status(400).json({ message: 'Past flights cannot be shown.' });
+      return res.status(400).json({ message: 'Past flights cannot be shown.' });
+  }
+  const flights = readFile(flightFile);
+  const availableFlights = flights.filter(flight =>
+      flight.from === from &&
+      flight.to === to &&
+      flight.date === date
+  );
+
+  // If no flights are found for the given date and route
+  if (availableFlights.length === 0) {
+      return res.status(404).json({ message: 'No flights available for the selected route and date.' });
   }
 
-  try {
-    const flights = await Flight.find({ from, to, date });
-    if (flights.length === 0) {
-      return res.status(404).json({ message: 'No flights available for the selected route and date.' });
-    }
-    res.status(200).json({ flights });
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching flights' });
-  }
+  // Return the available flights
+  res.status(200).json({ flights: availableFlights });
 });
 
 // User: Search Bookings by ID
-app.get('/user/bookings/:id', async (req, res) => {
-  const bookingId = req.params.id;
+app.get('/user/bookings/:id', (req, res) => {
+  const flights = readFile(bookingFile);
+  const flightId = parseInt(req.params.id);
 
-  try {
-    const booking = await Booking.findById(bookingId);
-    if (!booking) {
-      return res.status(404).json({ message: 'Booking not found' });
-    }
-    res.json(booking);
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching booking' });
+  // Find the flight by ID
+  const flight = flights.find(f => f.id === flightId);
+  if (!flight) {
+      return res.status(404).json({ message: 'Flight not found' });
   }
+
+  res.json(flight);
 });
 
 // User creates a new booking
-app.post('/user/bookings', async (req, res) => {
+app.post('/user/bookings', (req, res) => {
+  const bookings = readFile(bookingFile);
+  const flights = readFile(flightFile);
   const { from, to, date, passengers, travelClass } = req.body;
 
+  // Validate input
   if (!from || !to || !date || !passengers || !travelClass) {
-    return res.status(400).json({ message: 'All fields are required: from, to, date, passengers, travelClass.' });
+      return res.status(400).json({ message: 'All fields are required: from, to, date, passengers, travelClass.' });
   }
 
-  const today = new Date();
-  const inputDate = new Date(date);
-
-  if (inputDate < today.setHours(0, 0, 0, 0)) {
-    return res.status(400).json({ message: 'Cannot book a flight for a past date.' });
+  // Validate date
+  if (isPastDate(date)) {
+      return res.status(400).json({ message: 'Cannot book a flight for a past date.' });
   }
 
+  // Validate passengers
   if (passengers <= 0) {
-    return res.status(400).json({ message: 'Number of passengers must be at least 1.' });
+      return res.status(400).json({ message: 'Number of passengers must be at least 1.' });
   }
 
-  try {
-    const flight = await Flight.findOne({ from, to, date });
-    if (!flight) {
+  // Find the flight
+  const flight = flights.find(f => f.from === from && f.to === to && f.date === date);
+  if (!flight) {
       return res.status(404).json({ message: 'Flight not found.' });
-    }
+  }
 
-    if (flight.seatsAvailable[travelClass] < passengers) {
+  // Check seat availability for the requested class
+  if (!flight.seatsAvailable[travelClass] || flight.seatsAvailable[travelClass] < passengers) {
       return res.status(400).json({ message: `Not enough seats available in ${travelClass} class.` });
-    }
+  }
 
-    flight.seatsAvailable[travelClass] -= passengers;
-    await flight.save();
+  // Decrease seat count for the requested class
+  flight.seatsAvailable[travelClass] -= passengers;
+  writeFile(flightFile, flights);
 
-    const newBooking = new Booking({
+  // Add the booking to the bookings array
+  const newBooking = {
+      id: bookings.length + 1,
       from,
       to,
       date,
       passengers,
-      travelClass
-    });
+      travelClass,
+  };
 
-    await newBooking.save();
+  bookings.push(newBooking);
+  writeFile(bookingFile, bookings);
 
-    res.status(201).json({ message: 'Flight booked successfully', booking: newBooking });
-  } catch (error) {
-    res.status(500).json({ message: 'Error creating booking' });
-  }
+  res.status(201).json({ message: 'Flight booked successfully', booking: newBooking });
 });
 
 // View user bookings
-app.get('/user/bookings', async (req, res) => {
-  try {
-    const bookings = await Booking.find();
-    res.json(bookings);
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching bookings' });
-  }
+app.get('/user/bookings', (req, res) => {
+  const bookings = readFile(bookingFile);
+  res.json(bookings);
 });
 
 // Cancel a booking
-app.delete('/user/bookings/:id', async (req, res) => {
-  const bookingId = req.params.id;
+app.delete('/user/bookings/:id', (req, res) => {
+  const bookings = readFile(bookingFile);
+  const flights = readFile(flightFile);
+  const bookingId = parseInt(req.params.id);
 
-  try {
-    const booking = await Booking.findByIdAndDelete(bookingId);
-    if (!booking) {
-      return res.status(404).json({ message: 'Booking not found' });
-    }
+  const booking = bookings.find(b => b.id === bookingId);
+  if (!booking) return res.status(404).json({ message: 'Booking not found' });
 
-    const flight = await Flight.findOne({ from: booking.from, to: booking.to, date: booking.date });
-    if (flight) {
-      flight.seatsAvailable[booking.travelClass] += booking.passengers;
-      await flight.save();
-    }
+  const flight = flights.find(f => f.from === booking.from && f.to === booking.to && f.date === booking.date);
+  if (flight) flight.seatsAvailable += 1;
 
-    res.status(200).json({ message: 'Booking canceled successfully.' });
-  } catch (error) {
-    res.status(500).json({ message: 'Error canceling booking' });
-  }
+  writeFile(flightFile, flights);
+
+  const updatedBookings = bookings.filter(b => b.id !== bookingId);
+  writeFile(bookingFile, updatedBookings);
+
+  res.status(200).json({ message: 'Booking canceled successfully.' });
 });
 
 mongoose
