@@ -171,30 +171,36 @@ function fetchPlaces(destination) {
         const div = document.createElement("div");
         div.className = "place-item";
 
+        // 1. Add the image
         const img = document.createElement("img");
         img.src = `/assets/${place.name.toLowerCase()}.jpg`;
         img.alt = place.name;
+        div.appendChild(img);
 
+        // Add the title
         const title = document.createElement("h2");
         title.innerText = place.name;
+        div.appendChild(title);
 
+        // 2. Add the description
         const description = document.createElement("p");
         description.innerText = place.description;
+        div.appendChild(description);
 
+        // 3. Add the opening hours
         const hours = document.createElement("p");
         hours.innerText = `Opening Hours: ${place.opening_hours}`;
-
-        const ticketInfo = document.createElement("p");
-        ticketInfo.innerText = place.requires_ticket
-          ? ""
-          : "No ticket is required.";
-
-        div.appendChild(img);
-        div.appendChild(title);
-        div.appendChild(description);
         div.appendChild(hours);
-        div.appendChild(ticketInfo);
 
+        // 4. Add the ticket box if no ticket is required
+        if (!place.requires_ticket) {
+          const ticketBox = document.createElement("div");
+          ticketBox.classList.add("no-ticket-box");
+          ticketBox.innerText = "No ticket is required.";
+          div.appendChild(ticketBox);
+        }
+
+        // 5. Add buttons if tickets are required
         if (place.requires_ticket) {
           const ticketButton = document.createElement("button");
           ticketButton.innerText = "Book Ticket";
@@ -204,9 +210,7 @@ function fetchPlaces(destination) {
           const updateButton = document.createElement("button");
           updateButton.innerText = "Update Ticket";
           updateButton.className = "update-button";
-          updateButton.onclick = () =>
-            openTicketModal(destination, place, true);
-          div.appendChild(updateButton);
+          updateButton.onclick = () => openTicketModal(destination, place, true);
 
           const cancelButton = document.createElement("button");
           cancelButton.innerText = "Cancel Ticket";
@@ -218,6 +222,7 @@ function fetchPlaces(destination) {
           div.appendChild(cancelButton);
         }
 
+        // Append the complete place item to the container
         placesContainer.appendChild(div);
       });
     })
@@ -225,6 +230,74 @@ function fetchPlaces(destination) {
       console.error("Error fetching places:", error);
     });
 }
+
+// function fetchPlaces(destination) {
+//   fetch(`${baseUrl}/destinations/${destination}`)
+//     .then((response) => response.json())
+//     .then((places) => {
+//       const placesContainer = document.getElementById("places-container");
+//       placesContainer.innerHTML = ""; // Clear any existing content
+
+//       places.forEach((place) => {
+//         const div = document.createElement("div");
+//         div.className = "place-item";
+
+//         const img = document.createElement("img");
+//         img.src = `/assets/${place.name.toLowerCase()}.jpg`;
+//         img.alt = place.name;
+
+//         const title = document.createElement("h2");
+//         title.innerText = place.name;
+
+//         const description = document.createElement("p");
+//         description.innerText = place.description;
+
+//         const hours = document.createElement("p");
+//         hours.innerText = `Opening Hours: ${place.opening_hours}`;
+
+//         const ticketInfo = document.createElement("p");
+//         ticketInfo.innerText = place.requires_ticket
+//           ? ""
+//           : "No ticket is required.";
+
+//         div.appendChild(img);
+//         div.appendChild(title);
+//         div.appendChild(description);
+//         div.appendChild(hours);
+//         div.appendChild(ticketInfo);
+
+//         if (place.requires_ticket) {
+//           const ticketButton = document.createElement("button");
+//           ticketButton.innerText = "Book Ticket";
+//           ticketButton.className = "ticket-button";
+//           ticketButton.onclick = () => openTicketModal(destination, place);
+
+//           const updateButton = document.createElement("button");
+//           updateButton.innerText = "Update Ticket";
+//           updateButton.className = "update-button";
+//           updateButton.onclick = () =>
+//             openTicketModal(destination, place, true);
+//           div.appendChild(updateButton);
+
+//           const cancelButton = document.createElement("button");
+//           cancelButton.innerText = "Cancel Ticket";
+//           cancelButton.className = "cancel-button";
+//           cancelButton.onclick = () => cancelTicket(destination, place.name);
+
+//           div.appendChild(ticketButton);
+//           div.appendChild(updateButton);
+//           div.appendChild(cancelButton);
+//         }
+
+//         placesContainer.appendChild(div);
+//       });
+//     })
+//     .catch((error) => {
+//       console.error("Error fetching places:", error);
+//     });
+// }
+
+
 
 function cancelTicket(destination, placeName) {
   const ticketId = prompt("Enter the Ticket ID to cancel:");

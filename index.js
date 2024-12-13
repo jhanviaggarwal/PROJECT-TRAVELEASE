@@ -31,6 +31,9 @@ app.use(cors({ origin: "http://localhost:3001" }));
 const itinerariesRouter = require("./itineraries");
 app.use("/users", usersRouter);
 
+const userRoutes = require("./users");
+app.use("/", userRoutes);
+
 app.use("/itineraries", itinerariesRouter);
 
 app.use(express.static(path.join(__dirname, "public")));

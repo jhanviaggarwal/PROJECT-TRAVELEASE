@@ -1,75 +1,67 @@
-// users.js
 const express = require("express");
 const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
 const fs = require("fs");
-
 const router = express.Router();
-const USER_FILE = "./users.json";
-const secret_key = "qwertyuiopasdfghjklzxcvbnm";
 
-const readFile = () => {
-  if (!fs.existsSync(USER_FILE)) {
-    fs.writeFileSync(USER_FILE, JSON.stringify([]));
-  }
-  return JSON.parse(fs.readFileSync(USER_FILE, "utf-8"));
-};
+// File to store users
+const USERS_FILE = "users.json";
 
-const writeFile = (data) => {
-  fs.writeFileSync(USER_FILE, JSON.stringify(data, null, 2));
-};
-
-function verifyToken(req, res, next) {
-  const token = req.headers["authorization"];
-  if (!token) {
-    return res.status(400).json({ msg: "Token Required..." });
-  }
-  try {
-    req.user = jwt.verify(token, secret_key);
-    next();
-  } catch (error) {
-    return res.status(400).json({ msg: "Invalid Token..." });
-  }
-}
-
-router.post("/registerUser", (req, res) => {
-  if (!req.body.name || !req.body.email || !req.body.password) {
-    return res.status(400).send("All the fields are required");
-  }
-  const users_data = readFile();
-  const userExists = users_data.some((user) => user.email === req.body.email);
-  if (userExists) {
-    return res
-      .status(400)
-      .json({
-        msg: "This email address already exists. Please enter a unique email address",
-      });
-  }
-
-  const user_id = users_data.length
-    ? users_data[users_data.length - 1].id + 1
-    : 1;
-  const hashedPassword = bcrypt.hashSync(req.body.password, 8);
-  const newUser = {
-    id: user_id,
-    name: req.body.name,
-    email: req.body.email,
-    password: hashedPassword,
-  };
-  users_data.push(newUser);
-  writeFile(users_data);
-  res.status(201).json({ msg: "User Registered" });
-});
-
-router.post("/login", (req, res) => {
-  const users_data = readFile();
-  const user = users_data.find((user) => user.email === req.body.email);
-  if (user && bcrypt.compareSync(req.body.password, user.password)) {
-    const token = jwt.sign({ user_id: user.id }, secret_key);
-    res.status(200).json({ msg: "Login Successful...", token: token });
+// Helper to read users from file
+const readUsers = () => {
+  if (fs.existsSync(USERS_FILE)) {
+    return JSON.parse(fs.readFileSync(USERS_FILE));
   } else {
-    res.status(400).json({ msg: "Invalid Email or Password" });
+    return [];
+  }
+};
+
+// Helper to save users to file
+const saveUsers = (users) => {
+  fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+};
+
+// Sign Up Route
+router.post("/signup", (req, res) => {
+  const { email, password } = req.body;
+
+  // Check if email already exists
+  const users = readUsers();
+  const existingUser = users.find((user) => user.email === email);
+
+  if (existingUser) {
+    return res.status(400).json({ message: "Email already exists" });
+  }
+
+  // Hash the password before storing it
+  const hashedPassword = bcrypt.hashSync(password, 10);
+  const newUser = { email, password: hashedPassword };
+  users.push(newUser);
+  saveUsers(users);
+
+  res.status(201).json({ message: "User created successfully" });
+});
+
+// Sign In Route
+router.post("/signin", (req, res) => {
+  const { email, password } = req.body;
+
+  const users = readUsers();
+  const user = users.find((u) => u.email === email);
+
+  if (!user) {
+    return res.status(400).json({ message: "Invalid credentials" });
+  }
+
+  // Compare the hashed password
+  const isMatch = bcrypt.compareSync(password, user.password);
+
+  if (isMatch) {
+    res.status(200).json({ message: "Sign In successful" });
+  } else {
+    res.status(400).json({ message: "Invalid credentials" });
   }
 });
 
-module.exports = router;
+
+ module.exports = router;
+

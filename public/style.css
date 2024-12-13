@@ -966,3 +966,16 @@ header {
     font-size: 0.9rem;
     color: #555;
   }
+
+  .no-ticket-box {
+    background-color: #f30c0c; /* Light blue background */
+    color: #fdf8f8; /* Text color */
+    padding: 10px; /* Inner spacing */
+    border-radius: 5px; /* Rounded corners */
+    display: inline-block; /* Ensures it doesn't stretch to full width */
+    font-size: 14px; /* Adjust text size */
+    border: 1px solid #b3d9ff; /* Optional: subtle border */
+    margin-top: 10px; /* Space above the box */
+}
+
+   

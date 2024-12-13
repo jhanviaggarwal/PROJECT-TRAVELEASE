@@ -48,10 +48,6 @@
     "from": "Delhi",
     "to": "Mumbai",
     "date": "2024-12-30",
-    "seatsAvailable": {
-      "economy": 50,
-      "business": 10,
-      "first": 5
-    }
+    "seatsAvailable": "[object Object]1"
   }
 ]
